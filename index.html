@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>さんすうチャレンジ 〜小学6年生〜</title>
+<style>
+  :root {
+    --bg: #fff8e7;
+    --card: #ffffff;
+    --main: #ff8a3d;
+    --main-dark: #e5701f;
+    --accent: #3bb3a3;
+    --ok: #2e9e5b;
+    --ok-bg: #e8f7ee;
+    --ng: #d8453b;
+    --ng-bg: #fdecea;
+    --text: #3a3226;
+    --muted: #8a7f6d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { text-align: center; font-size: 1.9rem; margin: 12px 0 4px; color: var(--main-dark); }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 20px; }
+  .card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 24px 20px;
+    box-shadow: 0 4px 14px rgba(120, 90, 30, .12);
+  }
+  .card + .card { margin-top: 16px; }
+  .rules { margin: 12px 0 24px; padding-left: 1.4em; }
+  .rules li { margin: 4px 0; }
+  button {
+    font: inherit;
+    font-weight: bold;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 32px;
+    background: var(--main);
+    color: #fff;
+    font-size: 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--main-dark);
+    transition: transform .05s, box-shadow .05s;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--main-dark); }
+  button.secondary { background: var(--accent); box-shadow: 0 4px 0 #2a8c7e; }
+  .center { text-align: center; }
+
+  /* quiz */
+  .progress-text { display: flex; justify-content: space-between; font-weight: bold; color: var(--muted); }
+  .bar { height: 12px; background: #f1e6cc; border-radius: 99px; overflow: hidden; margin: 8px 0 20px; }
+  .bar > div { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  .question {
+    font-size: 2.2rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 18px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: .35em;
+    word-break: keep-all;
+  }
+  .op { display: inline-block; padding: 0 .1em; color: var(--main-dark); }
+  .qm { color: var(--accent); }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.15; font-size: .95em; }
+  .frac .n { border-bottom: .09em solid currentColor; padding: 0 .3em .05em; }
+  .frac .d { padding: .05em .3em 0; }
+  .answer-row { display: flex; justify-content: center; margin: 8px 0 4px; }
+  input[type=text] {
+    font: inherit;
+    font-size: 1.8rem;
+    width: 100%;
+    max-width: 320px;
+    padding: 10px 16px;
+    border: 3px solid #e8d9b5;
+    border-radius: 14px;
+    text-align: center;
+    background: #fffdf7;
+    color: var(--text);
+  }
+  input[type=text]:focus { outline: none; border-color: var(--main); }
+  .hint { text-align: center; color: var(--muted); font-size: .9rem; margin: 8px 0 18px; }
+  .error { text-align: center; color: var(--ng); font-weight: bold; min-height: 1.6em; margin: 0 0 8px; }
+
+  /* result */
+  .score { text-align: center; }
+  .score .big { font-size: 3rem; font-weight: bold; color: var(--main-dark); line-height: 1.2; }
+  .score .big small { font-size: 1.3rem; color: var(--text); }
+  .score .msg { font-size: 1.2rem; margin-top: 6px; }
+  .counts { display: flex; justify-content: center; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+  .pill { padding: 6px 18px; border-radius: 99px; font-weight: bold; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.ng { background: var(--ng-bg); color: var(--ng); }
+  .results { list-style: none; margin: 0; padding: 0; }
+  .res {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 14px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    border: 3px solid transparent;
+  }
+  .res.ok { background: var(--ok-bg); border-color: #bfe6cd; }
+  .res.ng { background: var(--ng-bg); border-color: #f5c3be; }
+  .mark { font-size: 2.2rem; font-weight: bold; text-align: center; line-height: 1; }
+  .res.ok .mark { color: var(--ok); }
+  .res.ng .mark { color: var(--ng); }
+  .res .num { font-size: .85rem; color: var(--muted); font-weight: bold; }
+  .res .qline { font-size: 1.5rem; font-weight: bold; display: flex; flex-wrap: wrap; align-items: center; gap: .3em; }
+  .res .detail { margin-top: 6px; font-size: 1rem; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+  .res .detail .lbl { color: var(--muted); font-size: .85rem; }
+  .res .detail b { font-size: 1.15rem; }
+  .res.ng .yours b { color: var(--ng); }
+  .res .correct b { color: var(--ok); }
+  .res .correct .frac, .res .yours .frac { font-size: .9em; }
+  .note { color: var(--ng); font-size: .9rem; font-weight: bold; }
+  @media (max-width: 480px) {
+    h1 { font-size: 1.6rem; }
+    .question { font-size: 1.8rem; }
+    .res { grid-template-columns: 40px 1fr; }
+    .mark { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<!-- ===== 問題生成・採点ロジック ===== -->
+<script>
+const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
+const F = (n, d = 1) => {
+  if (d < 0) { n = -n; d = -d; }
+  const g = gcd(n, d) || 1;
+  return { n: n / g, d: d / g };
+};
+const fAdd = (a, b) => F(a.n * b.d + b.n * a.d, a.d * b.d);
+const fSub = (a, b) => F(a.n * b.d - b.n * a.d, a.d * b.d);
+const fMul = (a, b) => F(a.n * b.n, a.d * b.d);
+const fDiv = (a, b) => F(a.n * b.d, a.d * b.n);
+const fEq  = (a, b) => a.n === b.n && a.d === b.d;
+const fGt  = (a, b) => a.n * b.d > b.n * a.d;
+const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const pick = arr => arr[ri(0, arr.length - 1)];
+const D = (i, k) => F(i, Math.pow(10, k));           // 小数 (整数i を 10^k で割る)
+
+// 有限小数になる分数を小数の文字列に
+function decStr(f) {
+  let k = 0, p = 1;
+  while (p % f.d !== 0) { p *= 10; k++; if (k > 6) throw new Error('not decimal'); }
+  let s = String(f.n * (p / f.d));
+  if (k > 0) { s = s.padStart(k + 1, '0'); s = s.slice(0, -k) + '.' + s.slice(-k); }
+  return s;
+}
+const fracH = (n, d) => `<span class="frac"><span class="n">${n}</span><span class="d">${d}</span></span>`;
+const SYM = { add: '+', sub: '−', mul: '×', div: '÷' };
+
+function mk(op, a, b, ans, type) {
+  return {
+    op, type, ans,
+    html: `${a}<span class="op">${SYM[op]}</span>${b}`,
+    kind: ans.d === 1 ? 'int' : (type === 'frac' ? 'frac' : 'dec')
+  };
+}
+function ansHtml(q) {
+  if (q.kind === 'frac') return fracH(q.ans.n, q.ans.d);
+  if (q.kind === 'dec') return decStr(q.ans);
+  return String(q.ans.n);
+}
+
+function twoFracs(op) {
+  // 通分が必要な、分母の異なる分数を2つ
+  let d1, d2;
+  do { d1 = ri(2, 9); d2 = ri(2, 9); } while (d1 === d2);
+  const a = { n: ri(1, d1 - 1), d: d1 }, b = { n: ri(1, d2 - 1), d: d2 };
+  return [a, b];
+}
+function twoFracsMD() {
+  let a, b;
+  do {
+    a = { n: ri(1, 9), d: ri(2, 9) };
+    b = { n: ri(1, 9), d: ri(2, 9) };
+  } while (a.n === a.d || b.n === b.d);
+  return [a, b];
+}
+
+const G = {
+  add: {
+    int()  { const a = ri(100, 9999), b = ri(100, 9999); return mk('add', a, b, F(a + b), 'int'); },
+    dec()  {
+      const A = D(ri(11, 999), pick([1, 2])), B = D(ri(11, 999), pick([1, 2]));
+      return mk('add', decStr(A), decStr(B), fAdd(A, B), 'dec');
+    },
+    frac() {
+      const [a, b] = twoFracs();
+      return mk('add', fracH(a.n, a.d), fracH(b.n, b.d), fAdd(F(a.n, a.d), F(b.n, b.d)), 'frac');
+    }
+  },
+  sub: {
+    int()  { const a = ri(1000, 9999), b = ri(100, a - 1); return mk('sub', a, b, F(a - b), 'int'); },
+    dec()  {
+      let A, B;
+      do { A = D(ri(11, 999), pick([1, 2])); B = D(ri(11, 999), pick([1, 2])); } while (!fGt(A, B));
+      return mk('sub', decStr(A), decStr(B), fSub(A, B), 'dec');
+    },
+    frac() {
+      let [a, b] = twoFracs();
+      for (;;) {
+        if (fGt(F(a.n, a.d), F(b.n, b.d))) break;
+        if (fGt(F(b.n, b.d), F(a.n, a.d))) { [a, b] = [b, a]; break; }
+        [a, b] = twoFracs();
+      }
+      return mk('sub', fracH(a.n, a.d), fracH(b.n, b.d), fSub(F(a.n, a.d), F(b.n, b.d)), 'frac');
+    }
+  },
+  mul: {
+    int()  {
+      const [a, b] = pick([() => [ri(12, 99), ri(12, 99)], () => [ri(100, 999), ri(11, 99)]])();
+      return mk('mul', a, b, F(a * b), 'int');
+    },
+    dec()  {
+      if (Math.random() < 0.6) {
+        const A = D(ri(11, 99), 1), B = D(ri(11, 99), 1);
+        return mk('mul', decStr(A), decStr(B), fMul(A, B), 'dec');
+      }
+      const A = D(ri(12, 99), 1), w = ri(2, 9);
+      return mk('mul', decStr(A), w, fMul(A, F(w)), 'dec');
+    },
+    frac() {
+      const [a, b] = twoFracsMD();
+      return mk('mul', fracH(a.n, a.d), fracH(b.n, b.d), fMul(F(a.n, a.d), F(b.n, b.d)), 'frac');
+    }
+  },
+  div: {
+    int()  {
+      const [d, q] = pick([() => [ri(2, 9), ri(100, 999)], () => [ri(11, 48), ri(11, 99)]])();
+      return mk('div', d * q, d, F(q), 'int');
+    },
+    dec()  {
+      if (Math.random() < 0.65) {
+        const Dv = D(ri(12, 99), 1), Q = D(ri(2, 50), pick([0, 1]));
+        return mk('div', decStr(fMul(Dv, Q)), decStr(Dv), Q, 'dec');
+      }
+      const w = ri(2, 9), Q = D(ri(11, 99), 1);
+      return mk('div', decStr(fMul(F(w), Q)), w, Q, 'dec');
+    },
+    frac() {
+      const [a, b] = twoFracsMD();
+      return mk('div', fracH(a.n, a.d), fracH(b.n, b.d), fDiv(F(a.n, a.d), F(b.n, b.d)), 'frac');
+    }
+  }
+};
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = ri(0, i);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function generateQuestions() {
+  const ops = shuffle(['add', 'add', 'sub', 'sub', 'mul', 'mul', 'mul', 'div', 'div', 'div']);
+  const seen = new Set();
+  return ops.map(op => {
+    let q, t = 0;
+    do { q = G[op][pick(['int', 'dec', 'frac'])](); } while (seen.has(q.html) && ++t < 30);
+    seen.add(q.html);
+    return q;
+  });
+}
+
+// 全角→半角などの正規化
+function normalize(s) {
+  return s
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。]/g, '.')
+    .replace(/[／]/g, '/')
+    .replace(/\s+/g, '');
+}
+function parseAnswer(raw) {
+  const s = normalize(raw);
+  if (s.length === 0 || s.length > 12) return null;
+  let m;
+  if (/^\d+$/.test(s)) return { f: F(parseInt(s, 10)), frac: null, text: s };
+  if ((m = /^(\d+)\.(\d+)$/.exec(s))) {
+    if (m[2].length > 4) return null;
+    return { f: F(parseInt(m[1] + m[2], 10), Math.pow(10, m[2].length)), frac: null, text: s };
+  }
+  if ((m = /^(\d+)\/(\d+)$/.exec(s))) {
+    const n = parseInt(m[1], 10), d = parseInt(m[2], 10);
+    if (d === 0) return null;
+    return { f: F(n, d), frac: { n, d }, text: s };
+  }
+  return null;
+}
+function grade(q, raw) {
+  const p = parseAnswer(raw);
+  if (!p) return null;                                   // 入力形式が不正
+  const same = fEq(p.f, q.ans);
+  const reduced = !p.frac || gcd(p.frac.n, p.frac.d) === 1;
+  return { ok: same && reduced, text: p.text, note: (same && !reduced) ? '分数は約分しましょう' : '' };
+}
+</script>
+
+<!-- ===== 画面 ===== -->
+<script>
+const app = document.getElementById('app');
+const TOTAL = 10;
+let state = { qs: [], i: 0, results: [] };
+
+const HINTS = {
+  int:  '整数で入力してね。',
+  dec:  '小数で入力してね。(整数になるときは整数で)',
+  frac: '分数は「3/4」のように入力してね。約分もわすれずに!(仮分数のままでOK。整数になるときは整数で)'
+};
+
+function renderStart() {
+  app.innerHTML = `
+    <h1>🧮 さんすうチャレンジ</h1>
+    <p class="sub">小学6年生 けいさんドリル</p>
+    <section class="card">
+      <h2 style="margin-top:0">あそびかた</h2>
+      <ul class="rules">
+        <li>たし算・ひき算・かけ算・わり算の問題が <b>10問</b> 出ます。</li>
+        <li>1問ずつ答えを入力して「こたえる」をおしてね。</li>
+        <li>整数・小数・分数の問題があるよ。</li>
+        <li>分数の答えは「3/4」のように書いて、約分もしてね。</li>
+        <li>10問おわったら、○×つきの結果が見られるよ。</li>
+      </ul>
+      <div class="center"><button id="startBtn">はじめる</button></div>
+    </section>`;
+  document.getElementById('startBtn').onclick = startQuiz;
+}
+
+function startQuiz() {
+  state = { qs: generateQuestions(), i: 0, results: [] };
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = state.qs[state.i];
+  const isLast = state.i === TOTAL - 1;
+  app.innerHTML = `
+    <h1>🧮 さんすうチャレンジ</h1>
+    <section class="card">
+      <div class="progress-text"><span>第 ${state.i + 1} 問</span><span>${state.i + 1} / ${TOTAL}</span></div>
+      <div class="bar"><div style="width:${(state.i / TOTAL) * 100}%"></div></div>
+      <div class="question">${q.html}<span class="op">＝</span><span class="qm">？</span></div>
+      <div class="answer-row">
+        <input id="ans" type="text" inputmode="text" autocomplete="off" autocapitalize="off"
+               spellcheck="false" aria-label="こたえ" placeholder="こたえを入力">
+      </div>
+      <p class="hint">${HINTS[q.type === 'frac' ? 'frac' : q.type === 'dec' ? 'dec' : 'int']}</p>
+      <p class="error" id="err" role="alert"></p>
+      <div class="center"><button id="submitBtn">${isLast ? 'こたえて けっかを見る' : 'こたえる'}</button></div>
+    </section>`;
+  const input = document.getElementById('ans');
+  input.focus();
+  const submit = () => {
+    const g = grade(q, input.value);
+    if (!g) {
+      document.getElementById('err').textContent =
+        input.value.trim() === '' ? 'こたえを入力してね。' : '数字、小数(1.5)、分数(3/4)の形で入力してね。';
+      input.focus();
+      return;
+    }
+    state.results.push({ q, ...g });
+    state.i++;
+    if (state.i >= TOTAL) renderResult(); else renderQuestion();
+  };
+  document.getElementById('submitBtn').onclick = submit;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submit(); });
+}
+
+function message(score) {
+  if (score === 10) return '🎉 ぜんぶ せいかい! かんぺきだね!';
+  if (score >= 8) return '✨ すばらしい! あと少しで まんてん!';
+  if (score >= 6) return '👍 よくできました! まちがえた問題を見なおそう。';
+  if (score >= 4) return '💪 がんばったね! もういちどチャレンジしよう。';
+  return '🌱 ここから ぐんぐん のびるよ! ゆっくり やってみよう。';
+}
+
+function renderResult() {
+  const score = state.results.filter(r => r.ok).length;
+  const items = state.results.map((r, idx) => `
+    <li class="res ${r.ok ? 'ok' : 'ng'}">
+      <div class="mark">${r.ok ? '○' : '×'}</div>
+      <div>
+        <div class="num">第 ${idx + 1} 問</div>
+        <div class="qline">${r.q.html}<span class="op">＝</span><span class="qm">？</span></div>
+        <div class="detail">
+          <span class="yours"><span class="lbl">あなたの答え</span> <b>${r.text}</b></span>
+          ${r.ok ? '' : `<span class="correct"><span class="lbl">せいかいの答え</span> <b>${ansHtml(r.q)}</b></span>`}
+          ${r.note ? `<span class="note">${r.note}</span>` : ''}
+        </div>
+      </div>
+    </li>`).join('');
+  app.innerHTML = `
+    <h1>🧮 けっか発表</h1>
+    <section class="card score">
+      <div class="big">${score}<small> / ${TOTAL} 問 せいかい</small></div>
+      <div class="msg">${message(score)}</div>
+      <div class="counts">
+        <span class="pill ok">○ せいかい ${score} 問</span>
+        <span class="pill ng">× まちがい ${TOTAL - score} 問</span>
+      </div>
+    </section>
+    <section class="card">
+      <h2 style="margin-top:0">問題と答えあわせ</h2>
+      <ul class="results">${items}</ul>
+      <div class="center"><button id="retryBtn" class="secondary">もういちど あたらしい問題で あそぶ</button></div>
+    </section>`;
+  document.getElementById('retryBtn').onclick = startQuiz;
+  window.scrollTo(0, 0);
+}
+
+renderStart();
+</script>
+</body>
+</html>
