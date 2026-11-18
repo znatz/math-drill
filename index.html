@@ -127,8 +127,75 @@
   .res .correct b { color: var(--ok); }
   .res .correct .frac, .res .yours .frac { font-size: .9em; }
   .note { color: var(--ng); font-size: .9rem; font-weight: bold; }
+  /* quiz layout: 上半分=問題と入力 / 下半分=手書きエリア */
+  main.quiz-mode {
+    max-width: 900px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .quiz-top { padding: 14px 18px; }
+  .quiz-top .bar { margin: 6px 0 8px; }
+  .quiz-top .question { font-size: 2rem; padding: 6px 8px; }
+  .quiz-top .hint { margin: 6px 0 8px; }
+  .quiz-top .error { margin: 0 0 6px; min-height: 1.4em; }
+  .quiz-top button#submitBtn { padding: 10px 28px; font-size: 1.05rem; }
+  .pad {
+    flex: 1;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: 0 4px 14px rgba(120, 90, 30, .12);
+    overflow: hidden;
+  }
+  .pad-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff3d6;
+  }
+  .pad-tools .title { font-weight: bold; color: var(--muted); font-size: .9rem; margin-right: auto; }
+  .pad-tools button {
+    padding: 6px 14px;
+    font-size: .95rem;
+    background: #fff;
+    color: var(--text);
+    border: 2px solid #e8d9b5;
+    box-shadow: none;
+  }
+  .pad-tools button:active { transform: none; box-shadow: none; }
+  .pad-tools button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pad-tools button.swatch { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px #e8d9b5; }
+  .pad-tools button.swatch.active { box-shadow: 0 0 0 3px var(--accent); }
+  .pad-canvas {
+    position: relative;
+    flex: 1;
+    min-height: 260px;
+    background-color: #fffdf7;
+    background-image:
+      linear-gradient(#efe3c4 1px, transparent 1px),
+      linear-gradient(90deg, #efe3c4 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .pad-canvas canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
   @media (max-width: 480px) {
     h1 { font-size: 1.6rem; }
+    .quiz-top .question { font-size: 1.6rem; }
     .question { font-size: 1.8rem; }
     .res { grid-template-columns: 40px 1fr; }
     .mark { font-size: 1.8rem; }
@@ -328,6 +395,7 @@ const HINTS = {
 };
 
 function renderStart() {
+  app.className = '';
   app.innerHTML = `
     <h1>🧮 さんすうチャレンジ</h1>
     <p class="sub">小学6年生 けいさんドリル</p>
@@ -350,12 +418,94 @@ function startQuiz() {
   renderQuestion();
 }
 
+// 手書きメモ欄(文字認識はしない。ただ書くだけ)。問題ごとに新しいメモ欄になる。
+function initPad() {
+  const wrap = document.getElementById('padWrap');
+  const cv = document.getElementById('pad');
+  const ctx = cv.getContext('2d');
+  const tools = document.querySelector('.pad-tools');
+  const WIDTH = { pen: 3, eraser: 26 };
+  let strokes = [], cur = null, tool = 'pen', color = '#2b2b2b', dpr = 1, rect = null;
+
+  function styleFor(s) {
+    ctx.globalCompositeOperation = s.tool === 'eraser' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
+    ctx.lineWidth = s.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  }
+  function drawDot(s, p) {
+    styleFor(s); ctx.beginPath(); ctx.arc(p.x, p.y, s.w / 2, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawSeg(s, a, b) {
+    styleFor(s); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  function redraw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const s of strokes) {
+      if (s.points.length === 1) { drawDot(s, s.points[0]); continue; }
+      for (let i = 1; i < s.points.length; i++) drawSeg(s, s.points[i - 1], s.points[i]);
+    }
+  }
+  function resize() {
+    const r = wrap.getBoundingClientRect();
+    dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    redraw();                       // 線のデータから描き直すので、画面サイズが変わっても消えない
+  }
+  const pt = (e) => ({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    cv.setPointerCapture(e.pointerId);
+    rect = cv.getBoundingClientRect();
+    const p = pt(e);
+    cur = { tool, color, w: WIDTH[tool], points: [p] };
+    strokes.push(cur);
+    drawDot(cur, p);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!cur) return;
+    e.preventDefault();
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) {
+      const p = pt(ev), prev = cur.points[cur.points.length - 1];
+      cur.points.push(p);
+      drawSeg(cur, prev, p);
+    }
+  });
+  const end = () => { cur = null; };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+
+  tools.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.color) { tool = 'pen'; color = b.dataset.color; }
+    else if (b.dataset.tool === 'eraser') { tool = 'eraser'; }
+    else return;
+    tools.querySelectorAll('.swatch, [data-tool]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  });
+  document.getElementById('padUndo').onclick = () => { strokes.pop(); redraw(); };
+  document.getElementById('padClear').onclick = () => {
+    if (strokes.length === 0) return;
+    if (confirm('かいたものを ぜんぶ けしてもいい?')) { strokes = []; redraw(); }
+  };
+
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
+  else { window.addEventListener('resize', resize); resize(); }
+}
+
 function renderQuestion() {
   const q = state.qs[state.i];
   const isLast = state.i === TOTAL - 1;
+  app.className = 'quiz-mode';
   app.innerHTML = `
-    <h1>🧮 さんすうチャレンジ</h1>
-    <section class="card">
+    <section class="card quiz-top">
       <div class="progress-text"><span>第 ${state.i + 1} 問</span><span>${state.i + 1} / ${TOTAL}</span></div>
       <div class="bar"><div style="width:${(state.i / TOTAL) * 100}%"></div></div>
       <div class="question">${q.html}<span class="op">＝</span><span class="qm">？</span></div>
@@ -366,9 +516,23 @@ function renderQuestion() {
       <p class="hint">${HINTS[q.type === 'frac' ? 'frac' : q.type === 'dec' ? 'dec' : 'int']}</p>
       <p class="error" id="err" role="alert"></p>
       <div class="center"><button id="submitBtn">${isLast ? 'こたえて けっかを見る' : 'こたえる'}</button></div>
+    </section>
+    <section class="pad" aria-label="ひっ算・計算用のメモ">
+      <div class="pad-tools">
+        <span class="title">✏️ ここで ひっ算しよう</span>
+        <button type="button" class="swatch active" data-color="#2b2b2b" style="background:#2b2b2b" aria-label="くろ"></button>
+        <button type="button" class="swatch" data-color="#d8453b" style="background:#d8453b" aria-label="あか"></button>
+        <button type="button" class="swatch" data-color="#2f6fdb" style="background:#2f6fdb" aria-label="あお"></button>
+        <button type="button" data-tool="eraser">けしゴム</button>
+        <button type="button" id="padUndo">ひとつもどす</button>
+        <button type="button" id="padClear">ぜんぶけす</button>
+      </div>
+      <div class="pad-canvas" id="padWrap"><canvas id="pad"></canvas></div>
     </section>`;
+  initPad();
   const input = document.getElementById('ans');
-  input.focus();
+  // タッチ端末ではキーボードが手書きエリアを隠すので、自動フォーカスはしない
+  if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) input.focus();
   const submit = () => {
     const g = grade(q, input.value);
     if (!g) {
@@ -394,6 +558,7 @@ function message(score) {
 }
 
 function renderResult() {
+  app.className = '';
   const score = state.results.filter(r => r.ok).length;
   const items = state.results.map((r, idx) => `
     <li class="res ${r.ok ? 'ok' : 'ng'}">
