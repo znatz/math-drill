@@ -193,6 +193,14 @@
     touch-action: none;
     cursor: crosshair;
   }
+  /* LINE内ブラウザ対策 / 画像プレビュー */
+  .ext-banner { background: #e8f7ee; border-radius: 14px; padding: 10px 14px; margin: 0 0 18px; font-size: .95rem; text-align: center; }
+  .ext-banner a { color: #05a546; font-weight: bold; }
+  .preview { margin-top: 16px; text-align: center; }
+  .preview[hidden] { display: none; }
+  .preview-guide { font-weight: bold; margin: 0 0 10px; }
+  .preview img { width: 100%; max-width: 480px; height: auto; border-radius: 12px; border: 3px solid #e8d9b5; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+  a.linkbtn { display: inline-block; text-decoration: none; font-weight: bold; padding: 10px 22px; border-radius: 999px; background: #fff; color: var(--text); border: 3px solid #e8d9b5; }
   /* share */
   .share-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; }
   button.line { background: #06c755; box-shadow: 0 4px 0 #05a546; }
@@ -416,6 +424,7 @@ function renderStart() {
         <li>分数の答えは「3/4」のように書いて、約分もしてね。</li>
         <li>10問おわったら、○×つきの結果が見られるよ。</li>
       </ul>
+      ${IN_LINE ? `<p class="ext-banner">📱 LINEの中のブラウザでは、画像のほぞんが うまくいかないことがあるよ。<br><a href="${externalUrl()}">ふつうのブラウザで ひらく</a></p>` : ''}
       <div class="center"><button id="startBtn">はじめる</button></div>
     </section>`;
   document.getElementById('startBtn').onclick = startQuiz;
@@ -595,6 +604,7 @@ function renderResult() {
         <button id="saveBtn" class="save" type="button">🖼 画像をほぞん</button>
       </div>
       <p class="share-msg" id="shareMsg" role="status"></p>
+      <div class="preview" id="previewBox" hidden></div>
     </section>
     <section class="card">
       <h2 style="margin-top:0">問題と答えあわせ</h2>
@@ -608,7 +618,7 @@ function renderResult() {
     .then(b => (state.shareBlob = b))
     .catch(() => null);
   document.getElementById('shareBtn').onclick = () => shareResult(score);
-  document.getElementById('saveBtn').onclick = () => saveResult();
+  document.getElementById('saveBtn').onclick = () => saveResult(score);
   window.scrollTo(0, 0);
 }
 
@@ -796,9 +806,14 @@ function downloadBlob(blob) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-async function saveResult() {
+async function saveResult(score) {
   const blob = state.shareBlob || await state.sharePromise;
   if (!blob) { setShareMsg('画像をつくれませんでした。もういちど ためしてね。'); return; }
+  if (IN_LINE) {
+    await showPreview(blob, score);
+    setShareMsg('LINEの中では ダウンロードできないので、画像を ひょうじしました。');
+    return;
+  }
   downloadBlob(blob);
   setShareMsg('画像をほぞんしました。');
 }
@@ -818,9 +833,40 @@ async function shareResult(score) {
       if (e && e.name === 'AbortError') return;     // 自分でキャンセルしたとき
     }
   }
-  // シェアできない環境(パソコンなど): 画像をほぞんして、LINEで送ってもらう
-  downloadBlob(blob);
-  setShareMsg('この ブラウザでは 直接シェアできないので、画像をほぞんしました。LINEをひらいて、その画像を送ってね。');
+  // シェアできない環境: 画像を画面に出す。LINEの中のブラウザはダウンロード不可なので保存はしない
+  if (!IN_LINE) downloadBlob(blob);
+  await showPreview(blob, score);
+  setShareMsg(IN_LINE
+    ? 'LINEの中では ダウンロードできないので、画像を ひょうじしました。'
+    : 'この ブラウザでは 直接シェアできないので、画像をほぞんしました。LINEをひらいて、その画像を送ってね。');
+}
+
+/* ===== LINEアプリ内ブラウザ対策 ===== */
+const IN_LINE = /\bLine\//i.test(navigator.userAgent);
+
+function externalUrl() {
+  const u = new URL(location.href);
+  u.searchParams.set('openExternalBrowser', '1');   // LINEが「ふつうのブラウザ」で開き直してくれる合図
+  return u.toString();
+}
+
+// 画像を画面にそのまま出す(長押しで「画像を保存」「共有」ができる)
+async function showPreview(blob, score) {
+  const box = document.getElementById('previewBox');
+  if (!box) return;
+  const dataUrl = await new Promise(res => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.readAsDataURL(blob);
+  });
+  const siteUrl = location.origin + location.pathname;
+  const lineText = encodeURIComponent(`さんすうチャレンジ ${score} / ${TOTAL} 問 せいかい! ${siteUrl}`);
+  box.innerHTML = `
+    <p class="preview-guide">👇 画像を <b>長押し</b> して「画像を保存」(または「共有」)をえらび、LINEで送ってね。</p>
+    <img src="${dataUrl}" alt="けっかの画像">
+    <div class="share-row"><a class="linkbtn" href="https://line.me/R/share?text=${lineText}">点数だけ LINEで送る</a></div>`;
+  box.hidden = false;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 renderStart();
